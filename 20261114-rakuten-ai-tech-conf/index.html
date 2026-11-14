@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI運用の熱望と、本番停止の絶望――その間で揺れるおっさんエンジニアの奮闘</title>
+  <style>
+    :root {
+      --bg-base: #F8FAFC;
+      --text-main: #0F172A;
+      --text-sub: #334155;
+      --text-muted: #64748B;
+      --ffg-blue: #005BAC;
+      --ffg-blue-soft: rgba(0, 91, 172, 0.08);
+      --rakuten-pink: #E6005C;
+      --rakuten-pink-soft: rgba(230, 0, 92, 0.08);
+      --prompter-bg: #EEF2F6;
+      --prompter-unread: #94A3B8;
+      --border-light: #E2E8F0;
+      --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* 全体3層レイアウト */
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 1. 上部エリア：プログレスバー＆ステータス */
+    .top-bar {
+      position: relative;
+      height: 58px;
+      padding: 8px 36px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .total-progress-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: var(--border-light);
+    }
+
+    .total-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--ffg-blue) 0%, var(--rakuten-pink) 100%);
+      transition: width 0.1s linear;
+    }
+
+    .event-label {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .event-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ffg-blue), var(--rakuten-pink));
+    }
+
+    .status-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+    }
+
+    .state-badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .state-badge.paused {
+      background: #FEF3C7;
+      color: #B45309;
+      border: 1px solid #F59E0B;
+    }
+
+    .state-badge.running {
+      background: var(--rakuten-pink-soft);
+      color: var(--rakuten-pink);
+      border: 1px solid rgba(230, 0, 92, 0.3);
+    }
+
+    .slide-counter {
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* 3分割タイマーボックス */
+    .timer-trio {
+      display: inline-flex;
+      align-items: stretch;
+      background: #FFFFFF;
+      border: 1.5px solid var(--border-light);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .timer-cell {
+      padding: 4px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      line-height: 1.15;
+    }
+
+    .timer-cell + .timer-cell {
+      border-left: 1.5px solid var(--border-light);
+    }
+
+    .timer-cell-label {
+      font-family: var(--font-sans);
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .timer-cell-val {
+      font-family: var(--font-mono);
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .timer-cell.elapsed .timer-cell-val {
+      color: var(--ffg-blue);
+    }
+
+    .timer-cell.elapsed.slide-over .timer-cell-val {
+      color: var(--rakuten-pink);
+    }
+
+    .timer-cell.target {
+      background: #F8FAFC;
+    }
+
+    .timer-cell.total .timer-cell-val {
+      color: var(--text-sub);
+    }
+
+    .timer-cell.total.total-over {
+      background: var(--rakuten-pink-soft);
+    }
+
+    .timer-cell.total.total-over .timer-cell-val {
+      color: var(--rakuten-pink);
+    }
+
+    /* 2. 中央エリア：メインステージ */
+    .main-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 64px;
+      overflow: hidden;
+    }
+
+    .slide-container {
+      width: 100%;
+      max-width: 1240px;
+      animation: fadeSlideIn 0.25s ease-out;
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Slide 1: タイトル専用レイアウト */
+    .title-slide {
+      text-align: left;
+      padding-left: 36px;
+      border-left: 10px solid;
+      border-image: linear-gradient(180deg, var(--rakuten-pink) 0%, var(--ffg-blue) 100%) 1;
+    }
+
+    .title-tags {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .tag-pink {
+      background: var(--rakuten-pink-soft);
+      color: var(--rakuten-pink);
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 1.1rem;
+    }
+
+    .tag-blue {
+      background: var(--ffg-blue-soft);
+      color: var(--ffg-blue);
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 1.1rem;
+    }
+
+    .title-main {
+      font-size: clamp(2.6rem, 4.6vw, 4.4rem);
+      font-weight: 900;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+    }
+
+    .title-main .hl-pink {
+      color: var(--rakuten-pink);
+    }
+
+    .title-main .hl-blue {
+      color: var(--ffg-blue);
+    }
+
+    .title-sub {
+      font-size: clamp(1.6rem, 2.8vw, 2.5rem);
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 40px;
+    }
+
+    .speaker-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* Slide 2: 問いかけ専用レイアウト */
+    .question-slide {
+      text-align: center;
+      padding: 24px;
+    }
+
+    .question-eyebrow {
+      display: inline-block;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--ffg-blue);
+      background: var(--ffg-blue-soft);
+      padding: 6px 20px;
+      border-radius: 999px;
+      margin-bottom: 32px;
+      letter-spacing: 0.08em;
+    }
+
+    .question-text {
+      font-size: clamp(2.4rem, 4.2vw, 4.0rem);
+      font-weight: 900;
+      line-height: 1.45;
+      color: var(--text-main);
+    }
+
+    .question-text .em-blue {
+      color: var(--ffg-blue);
+      border-bottom: 6px solid var(--ffg-blue);
+      padding-bottom: 2px;
+    }
+
+    .question-text .em-pink {
+      color: var(--rakuten-pink);
+      border-bottom: 6px solid var(--rakuten-pink);
+      padding-bottom: 2px;
+    }
+
+    /* Slide 3: 自己紹介＋年表レイアウト */
+    .profile-slide {
+      padding-left: 36px;
+      border-left: 10px solid var(--ffg-blue);
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .profile-title-group .slide-kicker {
+      color: var(--ffg-blue);
+    }
+
+    .profile-avatar {
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid var(--ffg-blue);
+      box-shadow: 0 6px 18px rgba(0, 91, 172, 0.18);
+      background-color: #FFFFFF;
+      flex-shrink: 0;
+    }
+
+    .career-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #FFFFFF;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+      border: 1.5px solid var(--border-light);
+    }
+
+    .career-table tr {
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .career-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .career-table td {
+      padding: 11px 22px;
+      font-size: clamp(1.15rem, 1.75vw, 1.48rem);
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+
+    .career-table td.year-col {
+      width: 240px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      color: var(--ffg-blue);
+      background: #F8FAFC;
+      border-right: 1px solid var(--border-light);
+    }
+
+    .career-table tr.incident-row {
+      background: var(--rakuten-pink-soft);
+    }
+
+    .career-table tr.incident-row td.year-col {
+      background: rgba(230, 0, 92, 0.12);
+      color: var(--rakuten-pink);
+    }
+
+    .career-table tr.incident-row td.role-col {
+      color: var(--rakuten-pink);
+      font-weight: 900;
+    }
+
+    /* Slide 4〜5: 標準コンテンツレイアウト */
+    .content-slide {
+      padding-left: 36px;
+      border-left: 10px solid var(--ffg-blue);
+    }
+
+    .content-slide.theme-pink {
+      border-left-color: var(--rakuten-pink);
+    }
+
+    .content-slide.theme-blue {
+      border-left-color: var(--ffg-blue);
+    }
+
+    .slide-kicker {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .theme-pink .slide-kicker {
+      color: var(--rakuten-pink);
+    }
+
+    .theme-blue .slide-kicker {
+      color: var(--ffg-blue);
+    }
+
+    .slide-headline {
+      font-size: clamp(2.6rem, 4.4vw, 4.2rem);
+      font-weight: 900;
+      line-height: 1.25;
+      margin-bottom: 36px;
+      color: var(--text-main);
+    }
+
+    .profile-slide .slide-headline {
+      margin-bottom: 0;
+    }
+
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .bullet-list li {
+      position: relative;
+      padding-left: 32px;
+      font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+      font-weight: 700;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    .bullet-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background-color: var(--ffg-blue);
+    }
+
+    .theme-pink .bullet-list li::before {
+      background-color: var(--rakuten-pink);
+    }
+
+    .bullet-list li strong {
+      color: var(--text-main);
+      font-weight: 900;
+    }
+
+    /* Slide 6: 融合・対比レイアウト */
+    .fusion-slide {
+      width: 100%;
+    }
+
+    .fusion-header {
+      margin-bottom: 26px;
+      padding-left: 24px;
+      border-left: 10px solid;
+      border-image: linear-gradient(180deg, var(--rakuten-pink) 0%, var(--ffg-blue) 100%) 1;
+    }
+
+    .fusion-kicker {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+    }
+
+    .fusion-headline {
+      font-size: clamp(2.2rem, 3.8vw, 3.5rem);
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .fusion-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-bottom: 22px;
+    }
+
+    .fusion-card {
+      padding: 26px 32px;
+      border-radius: 14px;
+      background: #FFFFFF;
+      border: 2px solid var(--border-light);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    .fusion-card.ai-side {
+      border-top: 8px solid var(--rakuten-pink);
+    }
+
+    .fusion-card.human-side {
+      border-top: 8px solid var(--ffg-blue);
+    }
+
+    .card-badge {
+      display: inline-block;
+      font-size: 0.95rem;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    .ai-side .card-badge {
+      background: var(--rakuten-pink-soft);
+      color: var(--rakuten-pink);
+    }
+
+    .human-side .card-badge {
+      background: var(--ffg-blue-soft);
+      color: var(--ffg-blue);
+    }
+
+    .card-title {
+      font-size: clamp(1.55rem, 2.35vw, 2.05rem);
+      font-weight: 900;
+      margin-bottom: 10px;
+      color: var(--text-main);
+    }
+
+    .card-desc {
+      font-size: clamp(1.2rem, 1.7vw, 1.48rem);
+      font-weight: 600;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    .fusion-footer-msg {
+      text-align: center;
+      font-size: clamp(1.35rem, 2.0vw, 1.8rem);
+      font-weight: 800;
+      color: var(--text-main);
+      padding: 14px 24px;
+      background: #FFFFFF;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-light);
+    }
+
+    /* 3. 下部エリア：カラオケ風テレプロンプター */
+    .prompter-wrapper {
+      height: 165px;
+      padding: 0 36px 18px;
+      flex-shrink: 0;
+      transition: all 0.25s ease;
+    }
+
+    .prompter-wrapper.hidden {
+      height: 0;
+      padding-bottom: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .prompter-box {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background-color: var(--prompter-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 14px;
+      padding: 16px 28px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .prompter-box::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .prompter-box::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 3px;
+    }
+
+    .slide-progress-bar {
+      position: sticky;
+      top: -16px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: transparent;
+      margin-bottom: 8px;
+      z-index: 2;
+    }
+
+    .slide-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--rakuten-pink);
+      border-radius: 2px;
+    }
+
+    .prompter-text {
+      font-size: 1.38rem;
+      font-weight: 700;
+      line-height: 1.75;
+      letter-spacing: 0.03em;
+      color: var(--prompter-unread);
+    }
+
+    .prompter-text .char {
+      transition: color 0.06s ease;
+    }
+
+    .prompter-text .char.spoken {
+      color: var(--text-main);
+      border-bottom: 2.5px solid rgba(230, 0, 92, 0.35);
+    }
+
+    .prompter-text .char.current {
+      color: var(--rakuten-pink);
+      border-bottom: 3px solid var(--rakuten-pink);
+    }
+
+    .prompter-text .char.stage-dir {
+      font-size: 1.05rem;
+      font-weight: 600;
+      opacity: 0.75;
+    }
+
+    .key-hint {
+      position: fixed;
+      bottom: 4px;
+      right: 40px;
+      font-size: 0.72rem;
+      color: #94A3B8;
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 上部ステータス＆全体プログレス -->
+    <header class="top-bar">
+      <div class="total-progress-track">
+        <div class="total-progress-fill" id="totalProgressFill"></div>
+      </div>
+      <div class="event-label">
+        <span class="event-dot"></span>
+        <span>Rakuten AI Technology Conference 2026 | Beer Bash LT</span>
+      </div>
+      <div class="status-controls">
+        <span class="state-badge paused" id="stateBadge">STANDBY (Space / → で開始)</span>
+        <span class="slide-counter" id="slideCounter">01 / 06</span>
+
+        <!-- 3分割タイマー（左：経過秒数 / 真ん中：予定秒数 / 右：5:00） -->
+        <div class="timer-trio" aria-label="タイマー表示">
+          <div class="timer-cell elapsed" id="elapsedCell">
+            <span class="timer-cell-label">ELAPSED</span>
+            <span class="timer-cell-val" id="slideElapsedSec">0s</span>
+          </div>
+          <div class="timer-cell target">
+            <span class="timer-cell-label">TARGET</span>
+            <span class="timer-cell-val" id="slideTargetSec">15s</span>
+          </div>
+          <div class="timer-cell total" id="totalCell">
+            <span class="timer-cell-label">LIMIT</span>
+            <span class="timer-cell-val">5:00</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 中央メインステージ -->
+    <main class="main-stage" id="mainStage"></main>
+
+    <!-- 下部カラオケ風テレプロンプター -->
+    <section class="prompter-wrapper" id="prompterWrapper">
+      <div class="prompter-box" id="prompterBox">
+        <div class="slide-progress-bar">
+          <div class="slide-progress-fill" id="slideProgressFill"></div>
+        </div>
+        <div class="prompter-text" id="prompterText"></div>
+      </div>
+    </section>
+
+    <div class="key-hint">[←/→] スライド移動  [Space] 一時停止/再開  [H] カンペ表示切替  [R] リセット</div>
+  </div>
+
+  <script>
+    const SLIDES = [
+      {
+        duration: 15,
+        render: () => `
+          <div class="slide-container title-slide">
+            <div class="title-tags">
+              <span class="tag-pink">AI運用の熱望</span>
+              <span class="tag-blue">本番停止の絶望</span>
+            </div>
+            <h1 class="title-main">
+              AI運用の<span class="hl-pink">熱望</span>と、<br>
+              本番停止の<span class="hl-blue">絶望</span>
+            </h1>
+            <p class="title-sub">――その間で揺れるおっさんエンジニアの奮闘</p>
+            <p class="speaker-name">加藤 恭平</p>
+          </div>
+        `,
+        script: "こんばんは。素晴らしいイベントと美味しいビールを用意してくださった運営の皆さん、ありがとうございます。これから5分間、私のAI運用についての自問自答を聞いてください。"
+      },
+      {
+        duration: 35,
+        render: () => `
+          <div class="slide-container question-slide">
+            <div class="question-eyebrow">QUESTION</div>
+            <p class="question-text">
+              本番作業の <span class="em-blue">Enterキー</span> を押す瞬間、<br>
+              心の中で <span class="em-pink">神様に祈った</span> ことがある人？
+            </p>
+          </div>
+        `,
+        script: "いきなりですが会場のみなさんに質問です。本番作業のEnterキーを押す瞬間、神様に祈ったことがある人、手を挙げてください。（※挙手を待つ間：3〜4秒）ありがとうございます。仲間がたくさんいて良かったです。普段は無宗教なのに、本番のターミナルを開いた瞬間だけ急に信心深くなるのがエンジニアのサガですよね。"
+      },
+      {
+        duration: 35,
+        render: () => `
+          <div class="slide-container profile-slide">
+            <div class="profile-header">
+              <div class="profile-title-group">
+                <div class="slide-kicker">WHO AM I</div>
+                <h2 class="slide-headline">揺れているおじさん</h2>
+              </div>
+              <img
+                class="profile-avatar"
+                src="https://media.connpass.com/thumbs/98/c4/98c489dd5b49910fc688a344505733ff.png"
+                alt="加藤 恭平"
+                onerror="this.style.display='none'"
+              />
+            </div>
+            <table class="career-table">
+              <tbody>
+                <tr>
+                  <td class="year-col">2001年〜</td>
+                  <td class="role-col">オンプレインフラエンジニア・プログラマ</td>
+                </tr>
+                <tr class="incident-row">
+                  <td class="year-col">2003年4月30日</td>
+                  <td class="role-col">人生最大のシステム障害！</td>
+                </tr>
+                <tr>
+                  <td class="year-col">2005年〜</td>
+                  <td class="role-col">プリセールス</td>
+                </tr>
+                <tr>
+                  <td class="year-col">2009年〜</td>
+                  <td class="role-col">電気回路エンジニア</td>
+                </tr>
+                <tr>
+                  <td class="year-col">2016年〜</td>
+                  <td class="role-col">GCPインフラエンジニア</td>
+                </tr>
+                <tr>
+                  <td class="year-col">2020年〜</td>
+                  <td class="role-col">AWSインフラエンジニア・AI開発</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+        script: "簡単な自己紹介です。かれこれ25年間エンジニアをやっていて、インフラ運用の現場が一番長いです。2020年に福岡へ移住、ふくおかフィナンシャルグループでインフラエンジニアをやりつつ、AI開発も兼任しています。だからこそ今、現場でめちゃくちゃ揺れています。"
+      },
+      {
+        duration: 50,
+        render: () => `
+          <div class="slide-container content-slide theme-pink">
+            <div class="slide-kicker">IDEAL / HOPE（熱望）</div>
+            <h2 class="slide-headline">AIは、祈らない。</h2>
+            <ul class="bullet-list">
+              <li>恐怖も迷いも、<strong>眠気も疲れも</strong>ない</li>
+              <li>事前手順を<strong>機械的に、無駄なく</strong>実行</li>
+              <li>深夜のアラートから解放される、運用者の<strong>長年の夢</strong></li>
+            </ul>
+          </div>
+        `,
+        script: "まず、AI運用への「熱望」です。今日のセッションでも運用自動化の素晴らしい話がありましたよね。長年システム運用をしてきた自分が、AIが出てきて思うのは「AIは祈らないよなぁ」です。人間は本番が怖いから祈るし、手が震えるし、眠気や疲れで判断も鈍ります。でもAIは恐怖も迷いも、眠気も疲れもありません。深夜3時にアラートで叩き起こされても文句ひとつ言わず、事前に決められた運用手順を、機械的に、無駄なく、ミリ秒単位で実行してくれます。……正直、人間としてはちょっと嫉妬するくらい羨ましいですよね。アラートに怯えながら祈り続けてきた運用者からすれば、この迷いのない合理性は、まさに喉から手が出るほど欲しい理想であり、熱望そのものです。"
+      },
+      {
+        duration: 75,
+        render: () => `
+          <div class="slide-container content-slide theme-blue">
+            <div class="slide-kicker">REALITY / NOPE（絶望）</div>
+            <h2 class="slide-headline">しかし、AIは祈らない。</h2>
+            <ul class="bullet-list">
+              <li>想定外の崩れ方をした時、<strong>AIにノーレビューで任せられるか？</strong></li>
+              <li>3部署の部長承認＆深夜2時の対策本部 ―― <strong>結局人間が集まって祈る現実</strong></li>
+            </ul>
+          </div>
+        `,
+        script: "しかし同時に、「絶望」も顔を出します。裏を返せば、AIは本番の重みを知らないからです。私はエンジニアとして何度も本番障害を経験していますが、さすがに最大級だった障害の話をさせてください。2003年4月30日、約4600万回線、日本のモバイル通信の60%が止まりました。iモードって、今の若い方は知らないですよね。私たちは事前に何度も障害テストをして、自動フェイルオーバーの試験もクリアしていました。それでも本番では、Oracle RAC構成が想定外に崩れていたんです。GWの狭間、フロアに一人きりの中、神に祈りながら震える手でEnterキーを押して復旧させたのは新卒3年目だった私です。あの重圧を、私は今も忘れられません。縁起でもないですが、もし今夜、同じように本番が想定外に落ちた時、当社では人間の承認フローが必須です。それも3部署くらいの部長の。緊急対策本部が立ち上がり、深夜2時でも本社にタクシーで駆け付けますね。結局明け方まで議論して、割と早い段階でわかっていた回復コマンドを打つんでしょうね。もちろん、そこでも祈りを込めて打ちます。ただ、そこを祈る心を持たないAIにノーレビューでEnterを押させるのは、私にはまだ無理です。"
+      },
+      {
+        duration: 90,
+        render: () => `
+          <div class="slide-container fusion-slide">
+            <div class="fusion-header">
+              <div class="fusion-kicker">STANCE / COPE（奮闘）</div>
+              <h2 class="fusion-headline">迷わず走るAI × 手綱を握る人間</h2>
+            </div>
+            <div class="fusion-grid">
+              <div class="fusion-card ai-side">
+                <span class="card-badge">AIの「準備」（調査・解析・生成）</span>
+                <h3 class="card-title">100%全開で任せる</h3>
+                <p class="card-desc">ログ解析、原因特定、復旧コマンドの生成までは、迷いのないAIのスピードを最大限に活かす。</p>
+              </div>
+              <div class="fusion-card human-side">
+                <span class="card-badge">人間の「決行」（本番変更・Enter）</span>
+                <h3 class="card-title">最後の1ミリに責任を置く</h3>
+                <p class="card-desc">本番環境を変えるEnterキーの直前には、頑丈なガードレールと責任を取る人間を配置する。</p>
+              </div>
+            </div>
+            <div class="fusion-footer-msg">
+              おじさんは揺れながら考え続け、ビールを飲み続ける。
+            </div>
+          </div>
+        `,
+        script: "熱望と絶望の間で、私がいま現場でやっている「奮闘」がこれです。AIを怖がって拒絶するのでもなく、全自動化を盲信するのでもない。いま私が現場で引いている境界線は、「調べる・原因を特定する・復旧コマンドを作る」という準備の領域は、迷いのないAIに100パーセント全開で任せること。迷いなく走るAIのスピードは、初動対応において最強の武器になります。そして、本番の状態を変える決行の領域、つまり最後のEnterキーの1ミリ手前にだけ、頑丈なガードレールと人間の責任を置くことです。……あとしつこいようですが、祈りも。現場の安心のために、AIの無心な実行力と、人間の責任。どのバランスで組み合わせるか。私の中ではまだ正解は出ていません。今夜、同じ現場で戦う楽天カードや福岡の皆さんの境界線を聞くことができてとてもよかったです。ありがとうございました。"
+      }
+    ];
+
+    const TOTAL_DURATION = SLIDES.reduce((acc, s) => acc + s.duration, 0); // 300s
+
+    let currentSlideIndex = 0;
+    let isRunning = false;
+    let slideElapsedMs = 0;
+    let lastTimestamp = null;
+    let prompterVisible = true;
+    let charSpans = [];
+
+    const mainStage = document.getElementById("mainStage");
+    const prompterBox = document.getElementById("prompterBox");
+    const prompterText = document.getElementById("prompterText");
+    const prompterWrapper = document.getElementById("prompterWrapper");
+    const slideProgressFill = document.getElementById("slideProgressFill");
+    const totalProgressFill = document.getElementById("totalProgressFill");
+    const slideCounter = document.getElementById("slideCounter");
+    const slideElapsedSecEl = document.getElementById("slideElapsedSec");
+    const slideTargetSecEl = document.getElementById("slideTargetSec");
+    const elapsedCell = document.getElementById("elapsedCell");
+    const totalCell = document.getElementById("totalCell");
+    const stateBadge = document.getElementById("stateBadge");
+
+    function getCompletedSlidesDuration() {
+      let sum = 0;
+      for (let i = 0; i < currentSlideIndex; i++) {
+        sum += SLIDES[i].duration;
+      }
+      return sum;
+    }
+
+    function renderSlide(index) {
+      currentSlideIndex = index;
+      slideElapsedMs = 0;
+      const slide = SLIDES[currentSlideIndex];
+
+      mainStage.innerHTML = slide.render();
+      slideCounter.textContent = `${String(currentSlideIndex + 1).padStart(2, "0")} / ${String(SLIDES.length).padStart(2, "0")}`;
+      slideTargetSecEl.textContent = `${slide.duration}s`;
+
+      // テレプロンプターの1文字ずつspan生成
+      prompterText.innerHTML = "";
+      charSpans = [];
+      let inStageDir = false;
+
+      for (let i = 0; i < slide.script.length; i++) {
+        const ch = slide.script[i];
+        if (ch === "（" && slide.script.slice(i, i + 3) === "（※") {
+          inStageDir = true;
+        }
+        const span = document.createElement("span");
+        span.textContent = ch;
+        span.className = inStageDir ? "char stage-dir" : "char";
+        prompterText.appendChild(span);
+        charSpans.push(span);
+        if (ch === "）" && inStageDir) {
+          inStageDir = false;
+        }
+      }
+
+      prompterBox.scrollTop = 0;
+      updateVisuals();
+    }
+
+    function updateStateBadge() {
+      if (isRunning) {
+        stateBadge.textContent = "ON AIR";
+        stateBadge.className = "state-badge running";
+      } else {
+        stateBadge.textContent = "PAUSED (Space で再開)";
+        stateBadge.className = "state-badge paused";
+      }
+    }
+
+    function updateVisuals() {
+      const slide = SLIDES[currentSlideIndex];
+      const slideDurationMs = slide.duration * 1000;
+      const slideProgress = Math.min(1, slideElapsedMs / slideDurationMs);
+
+      slideProgressFill.style.width = `${slideProgress * 100}%`;
+
+      // 左：切り替わってからの秒数（0から）
+      const currentSlideSec = Math.floor(slideElapsedMs / 1000);
+      slideElapsedSecEl.textContent = `${currentSlideSec}s`;
+      if (currentSlideSec > slide.duration) {
+        elapsedCell.classList.add("slide-over");
+      } else {
+        elapsedCell.classList.remove("slide-over");
+      }
+
+      // 全体経過時間プログレスバー＆5:00超過チェック
+      const totalElapsedSec = getCompletedSlidesDuration() + (slideElapsedMs / 1000);
+      const totalProgress = Math.min(1, totalElapsedSec / TOTAL_DURATION);
+      totalProgressFill.style.width = `${totalProgress * 100}%`;
+
+      if (totalElapsedSec > TOTAL_DURATION) {
+        totalCell.classList.add("total-over");
+      } else {
+        totalCell.classList.remove("total-over");
+      }
+
+      // 文字色のリアルタイム更新
+      const totalChars = charSpans.length;
+      const activeIdx = Math.floor(slideProgress * totalChars);
+
+      for (let i = 0; i < totalChars; i++) {
+        const span = charSpans[i];
+        if (i < activeIdx) {
+          span.classList.add("spoken");
+          span.classList.remove("current");
+        } else if (i === activeIdx && isRunning && slideProgress < 1) {
+          span.classList.remove("spoken");
+          span.classList.add("current");
+          // 自動スクロール追従
+          const offsetTop = span.offsetTop;
+          const boxHeight = prompterBox.clientHeight;
+          if (offsetTop > boxHeight * 0.55) {
+            prompterBox.scrollTop = offsetTop - boxHeight * 0.4;
+          }
+        } else {
+          span.classList.remove("spoken", "current");
+        }
+      }
+    }
+
+    function tick(timestamp) {
+      if (lastTimestamp !== null && isRunning) {
+        const delta = timestamp - lastTimestamp;
+        slideElapsedMs += delta;
+        updateVisuals();
+      }
+      lastTimestamp = timestamp;
+      requestAnimationFrame(tick);
+    }
+
+    function nextSlide() {
+      if (!isRunning) {
+        isRunning = true;
+        updateStateBadge();
+        if (currentSlideIndex === 0 && slideElapsedMs === 0) {
+          return;
+        }
+      }
+      if (currentSlideIndex < SLIDES.length - 1) {
+        renderSlide(currentSlideIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        renderSlide(currentSlideIndex - 1);
+      } else {
+        slideElapsedMs = 0;
+        updateVisuals();
+      }
+    }
+
+    function togglePause() {
+      isRunning = !isRunning;
+      updateStateBadge();
+      updateVisuals();
+    }
+
+    function togglePrompter() {
+      prompterVisible = !prompterVisible;
+      prompterWrapper.classList.toggle("hidden", !prompterVisible);
+    }
+
+    function resetAll() {
+      isRunning = false;
+      renderSlide(0);
+      stateBadge.textContent = "STANDBY (Space / → で開始)";
+      stateBadge.className = "state-badge paused";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === "PageDown") {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.code === "Space") {
+        e.preventDefault();
+        togglePause();
+      } else if (e.key.toLowerCase() === "h") {
+        togglePrompter();
+      } else if (e.key.toLowerCase() === "r") {
+        resetAll();
+      }
+    });
+
+    // 初期化
+    renderSlide(0);
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
