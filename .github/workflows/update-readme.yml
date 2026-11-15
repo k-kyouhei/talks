@@ -1,0 +1,89 @@
+name: Update README
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '*/meta.json'
+      - '.github/workflows/update-readme.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate README.md
+        run: |
+          python3 - << 'EOF'
+          import glob
+          import json
+          import os
+          from collections import defaultdict
+
+          talks_by_year = defaultdict(list)
+
+          for meta_path in glob.glob('*/meta.json'):
+              dir_name = os.path.dirname(meta_path)
+              with open(meta_path, 'r', encoding='utf-8') as f:
+                  data = json.load(f)
+              
+              date_str = data['date']
+              year = date_str.split('-')[0]
+              title = data['title']
+              event = f"[{data['event_name']}]({data['event_url']})" if data.get('event_url') else data['event_name']
+              
+              links = []
+              for item in data.get('materials', []):
+                  # 相対パスの場合は ./ を付与
+                  url = item['url']
+                  if not url.startswith(('http://', 'https://', './')):
+                      url = f"./{dir_name}/{url}"
+                  links.append(f"[{item['label']}]({url})")
+              
+              talks_by_year[year].append({
+                  'date': date_str,
+                  'title': title,
+                  'event': event,
+                  'materials': ' / '.join(links)
+              })
+
+          lines = [
+              "# Talks",
+              "",
+              "Slides, demos, and resources from my lightning talks and conference presentations.  ",
+              "LTや勉強会での登壇資料・デモコードのアーカイブです。",
+              ""
+          ]
+
+          for year in sorted(talks_by_year.keys(), reverse=True):
+              lines.append(f"## {year}")
+              lines.append("")
+              lines.append("| 日付 | タイトル | イベント | 資料 / リンク |")
+              lines.append("| :--- | :--- | :--- | :--- |")
+              
+              # 日付降順でソート
+              sorted_talks = sorted(talks_by_year[year], key=lambda x: x['date'], reverse=True)
+              for t in sorted_talks:
+                  lines.append(f"| {t['date']} | {t['title']} | {t['event']} | {t['materials']} |")
+              lines.append("")
+
+          with open('README.md', 'w', encoding='utf-8') as f:
+              f.write('\n'.join(lines))
+          EOF
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          if ! git diff --staged --quiet; then
+            git commit -m "docs: auto-update README.md"
+            git push
+          fi
