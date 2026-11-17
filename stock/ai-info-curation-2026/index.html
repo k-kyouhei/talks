@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI時代の情報収集術 2026 ―― そのAIトークン、ホントに必要？</title>
+  <style>
+    :root {
+      --bg-base: #F8FAFC;
+      --text-main: #0F172A;
+      --text-sub: #334155;
+      --text-muted: #64748B;
+      --ffg-blue: #005BAC;
+      --ffg-blue-soft: rgba(0, 91, 172, 0.08);
+      --accent-pink: #E6005C;
+      --accent-pink-soft: rgba(230, 0, 92, 0.08);
+      --accent-teal: #0D9488;
+      --accent-teal-soft: rgba(13, 148, 136, 0.09);
+      --prompter-bg: #EEF2F6;
+      --prompter-unread: #94A3B8;
+      --border-light: #E2E8F0;
+      --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* 初期時間＆デッキ構成セットアップモーダル */
+    .setup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+    }
+
+    .setup-overlay.hidden {
+      display: none;
+    }
+
+    .setup-card {
+      background: #FFFFFF;
+      width: 100%;
+      max-width: 640px;
+      border-radius: 18px;
+      padding: 32px 36px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+      border-top: 8px solid var(--ffg-blue);
+    }
+
+    .setup-eyebrow {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--ffg-blue);
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .setup-title {
+      font-size: 1.65rem;
+      font-weight: 900;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .setup-desc {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .setup-section {
+      margin-bottom: 22px;
+    }
+
+    .setup-label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-sub);
+      margin-bottom: 10px;
+    }
+
+    .preset-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-light);
+      background: #F8FAFC;
+      color: var(--text-sub);
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--ffg-blue);
+      color: var(--ffg-blue);
+    }
+
+    .preset-btn.active {
+      background: var(--ffg-blue);
+      border-color: var(--ffg-blue);
+      color: #FFFFFF;
+    }
+
+    .time-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #F8FAFC;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-light);
+    }
+
+    .time-input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .time-num-input {
+      width: 72px;
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 800;
+      text-align: center;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 8px;
+      background: #FFFFFF;
+      color: var(--text-main);
+      user-select: text;
+    }
+
+    .time-num-input:focus {
+      outline: none;
+      border-color: var(--ffg-blue);
+    }
+
+    .time-unit {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+
+    .calc-summary {
+      margin-left: auto;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--ffg-blue);
+      background: var(--ffg-blue-soft);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+    }
+
+    .module-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .module-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-light);
+      background: #FFFFFF;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .module-item:hover {
+      border-color: var(--ffg-blue);
+    }
+
+    .module-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .module-left input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--ffg-blue);
+      cursor: pointer;
+    }
+
+    .module-name {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .module-tag {
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+
+    .module-tag.buffer {
+      background: #FEF3C7;
+      color: #B45309;
+    }
+
+    .module-tag.appendix {
+      background: var(--accent-teal-soft);
+      color: var(--accent-teal);
+    }
+
+    .start-deck-btn {
+      width: 100%;
+      padding: 15px 24px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(90deg, var(--ffg-blue) 0%, #0284C7 100%);
+      color: #FFFFFF;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0, 91, 172, 0.25);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .start-deck-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0, 91, 172, 0.32);
+    }
+
+    /* 画像拡大ライトボックスモーダル */
+    .zoom-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 120;
+      padding: 24px;
+      cursor: zoom-out;
+    }
+
+    .zoom-overlay.hidden {
+      display: none;
+    }
+
+    .zoom-overlay img {
+      max-width: 90vw;
+      max-height: 85vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 18px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      border: 3px solid rgba(255, 255, 255, 0.25);
+      background: #0F172A;
+    }
+
+    .zoom-hint {
+      margin-top: 12px;
+      color: #E2E8F0;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    /* 全体3層レイアウト */
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 1. 上部エリア：プログレスバー＆ステータス */
+    .top-bar {
+      position: relative;
+      height: 58px;
+      padding: 8px 36px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .total-progress-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: var(--border-light);
+    }
+
+    .total-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--ffg-blue) 0%, var(--accent-pink) 100%);
+      transition: width 0.1s linear;
+    }
+
+    .event-label {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .event-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ffg-blue), var(--accent-pink));
+    }
+
+    .status-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+    }
+
+    .setup-trigger-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-light);
+      background: #FFFFFF;
+      color: var(--text-sub);
+      font-family: var(--font-sans);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .setup-trigger-btn:hover {
+      border-color: var(--ffg-blue);
+      color: var(--ffg-blue);
+    }
+
+    .state-badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .state-badge.paused {
+      background: #FEF3C7;
+      color: #B45309;
+      border: 1px solid #F59E0B;
+    }
+
+    .state-badge.running {
+      background: var(--ffg-blue-soft);
+      color: var(--ffg-blue);
+      border: 1px solid rgba(0, 91, 172, 0.3);
+    }
+
+    .slide-counter {
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* 3分割タイマーボックス */
+    .timer-trio {
+      display: inline-flex;
+      align-items: stretch;
+      background: #FFFFFF;
+      border: 1.5px solid var(--border-light);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .timer-cell {
+      padding: 4px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 66px;
+      line-height: 1.15;
+    }
+
+    .timer-cell + .timer-cell {
+      border-left: 1.5px solid var(--border-light);
+    }
+
+    .timer-cell-label {
+      font-family: var(--font-sans);
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .timer-cell-val {
+      font-family: var(--font-mono);
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .timer-cell.elapsed .timer-cell-val {
+      color: var(--ffg-blue);
+    }
+
+    .timer-cell.elapsed.slide-over .timer-cell-val {
+      color: var(--accent-pink);
+    }
+
+    .timer-cell.target {
+      background: #F8FAFC;
+    }
+
+    .timer-cell.total .timer-cell-val {
+      color: var(--text-sub);
+    }
+
+    .timer-cell.total.total-over {
+      background: var(--accent-pink-soft);
+    }
+
+    .timer-cell.total.total-over .timer-cell-val {
+      color: var(--accent-pink);
+    }
+
+    /* 2. 中央エリア：メインステージ */
+    .main-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 64px;
+      overflow: hidden;
+    }
+
+    .slide-container {
+      width: 100%;
+      max-width: 1240px;
+      animation: fadeSlideIn 0.25s ease-out;
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Slide 1: タイトル専用レイアウト */
+    .title-slide {
+      text-align: left;
+      padding-left: 36px;
+      border-left: 10px solid var(--ffg-blue);
+    }
+
+    .title-eyebrow {
+      display: inline-block;
+      background: var(--ffg-blue-soft);
+      color: var(--ffg-blue);
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 1.05rem;
+      margin-bottom: 22px;
+      letter-spacing: 0.05em;
+    }
+
+    .title-main {
+      font-size: clamp(2.8rem, 5.0vw, 4.8rem);
+      font-weight: 900;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+      color: var(--text-main);
+    }
+
+    .title-main .hl-blue {
+      color: var(--ffg-blue);
+    }
+
+    .title-sub {
+      font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 40px;
+    }
+
+    .speaker-name {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* 共通コンテンツレイアウト */
+    .content-slide {
+      padding-left: 36px;
+      border-left: 10px solid var(--ffg-blue);
+    }
+
+    .content-slide.theme-pink {
+      border-left-color: var(--accent-pink);
+    }
+
+    .content-slide.theme-teal {
+      border-left-color: var(--accent-teal);
+    }
+
+    .slide-kicker {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+      color: var(--ffg-blue);
+    }
+
+    .theme-pink .slide-kicker {
+      color: var(--accent-pink);
+    }
+
+    .theme-teal .slide-kicker {
+      color: var(--accent-teal);
+    }
+
+    .slide-headline {
+      font-size: clamp(2.2rem, 3.8vw, 3.6rem);
+      font-weight: 900;
+      line-height: 1.25;
+      margin-bottom: 24px;
+      color: var(--text-main);
+    }
+
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .bullet-list li {
+      position: relative;
+      padding-left: 30px;
+      font-size: clamp(1.35rem, 2.1vw, 1.9rem);
+      font-weight: 700;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    .bullet-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background-color: var(--ffg-blue);
+    }
+
+    .theme-pink .bullet-list li::before {
+      background-color: var(--accent-pink);
+    }
+
+    .theme-teal .bullet-list li::before {
+      background-color: var(--accent-teal);
+    }
+
+    .bullet-list li strong {
+      color: var(--text-main);
+      font-weight: 900;
+    }
+
+    /* Slide 2: 自己紹介 */
+    .intro-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .intro-header .slide-headline {
+      margin-bottom: 6px;
+    }
+
+    .profile-org {
+      font-size: clamp(1.2rem, 1.85vw, 1.6rem);
+      font-weight: 800;
+      color: var(--ffg-blue);
+    }
+
+    .profile-avatar {
+      width: 108px;
+      height: 108px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid var(--ffg-blue);
+      box-shadow: 0 6px 18px rgba(0, 91, 172, 0.18);
+      background-color: #FFFFFF;
+      flex-shrink: 0;
+    }
+
+    /* Slide 3: AIエージェント比較表 */
+    .agent-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #FFFFFF;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+      border: 1.5px solid var(--border-light);
+    }
+
+    .agent-table th {
+      background: var(--ffg-blue);
+      color: #FFFFFF;
+      font-size: 1.05rem;
+      font-weight: 800;
+      padding: 13px 18px;
+      text-align: left;
+    }
+
+    .agent-table td {
+      padding: 12px 18px;
+      font-size: clamp(1.05rem, 1.55vw, 1.32rem);
+      font-weight: 700;
+      color: var(--text-sub);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .agent-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .agent-table tr:nth-child(even) {
+      background: #F8FAFC;
+    }
+
+    .agent-name {
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .agent-price {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      color: var(--accent-pink);
+    }
+
+    /* Slide 4: 転換点・一枚絵ちゃぶ台返し */
+    .twist-slide {
+      text-align: center;
+      padding: 36px 24px;
+      background: #FFFFFF;
+      border-radius: 20px;
+      border: 3px solid var(--accent-pink);
+      box-shadow: 0 16px 40px rgba(230, 0, 92, 0.12);
+    }
+
+    .twist-badge {
+      display: inline-block;
+      background: var(--accent-pink-soft);
+      color: var(--accent-pink);
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 6px 20px;
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+      margin-bottom: 24px;
+    }
+
+    .twist-headline {
+      font-size: clamp(3.0rem, 5.8vw, 5.4rem);
+      font-weight: 900;
+      line-height: 1.3;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+
+    .twist-headline .hl-pink {
+      color: var(--accent-pink);
+      border-bottom: 8px solid var(--accent-pink);
+    }
+
+    /* Slide 5: 解決策（縦長スクショ自動フィット＋クリック拡大対応） */
+    .solution-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.75fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .screenshot-frame {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #FFFFFF;
+      padding: 12px 14px 10px;
+      border-radius: 18px;
+      border: 1.5px solid var(--border-light);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.09);
+      cursor: zoom-in;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .screenshot-frame:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px rgba(0, 91, 172, 0.15);
+      border-color: var(--ffg-blue);
+    }
+
+    .screenshot-img {
+      max-height: calc(100vh - 330px);
+      min-height: 220px;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
+    }
+
+    .screenshot-caption {
+      margin-top: 8px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--ffg-blue);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Slide 6: 3つのメリットカード */
+    .roi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .roi-card {
+      background: #FFFFFF;
+      border-radius: 14px;
+      padding: 26px 24px;
+      border: 1.5px solid var(--border-light);
+      border-top: 8px solid var(--ffg-blue);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    .roi-num {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--ffg-blue);
+      margin-bottom: 10px;
+    }
+
+    .roi-title {
+      font-size: clamp(1.35rem, 2.0vw, 1.75rem);
+      font-weight: 900;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .roi-desc {
+      font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+      font-weight: 600;
+      color: var(--text-sub);
+      line-height: 1.55;
+    }
+
+    /* Slide 7: 着地＋実物QRコードエリア */
+    .takeaway-layout {
+      display: grid;
+      grid-template-columns: 1.45fr 0.65fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .qr-box {
+      background: #FFFFFF;
+      border: 2.5px solid var(--ffg-blue);
+      border-radius: 18px;
+      padding: 18px 20px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 91, 172, 0.1);
+      cursor: zoom-in;
+      transition: transform 0.15s ease;
+    }
+
+    .qr-box:hover {
+      transform: translateY(-2px);
+    }
+
+    .qr-img {
+      width: 172px;
+      height: 172px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 10px;
+      border-radius: 8px;
+    }
+
+    .qr-title {
+      font-size: 1.02rem;
+      font-weight: 900;
+      color: var(--ffg-blue);
+      margin-bottom: 4px;
+    }
+
+    .qr-note {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      line-height: 1.4;
+    }
+
+    /* Appendix 3: 検索ワードチップ */
+    .keyword-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+
+    .kw-chip {
+      background: var(--accent-teal-soft);
+      color: var(--accent-teal);
+      border: 1.5px solid rgba(13, 148, 136, 0.3);
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 800;
+      padding: 8px 18px;
+      border-radius: 999px;
+    }
+
+    /* 3. 下部エリア：カラオケ風テレプロンプター */
+    .prompter-wrapper {
+      height: 165px;
+      padding: 0 36px 18px;
+      flex-shrink: 0;
+      transition: all 0.25s ease;
+    }
+
+    .prompter-wrapper.hidden {
+      height: 0;
+      padding-bottom: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .prompter-box {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background-color: var(--prompter-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 14px;
+      padding: 16px 28px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .prompter-box::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .prompter-box::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 3px;
+    }
+
+    .slide-progress-bar {
+      position: sticky;
+      top: -16px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: transparent;
+      margin-bottom: 8px;
+      z-index: 2;
+    }
+
+    .slide-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--ffg-blue);
+      border-radius: 2px;
+    }
+
+    .prompter-text {
+      font-size: 1.38rem;
+      font-weight: 700;
+      line-height: 1.75;
+      letter-spacing: 0.03em;
+      color: var(--prompter-unread);
+    }
+
+    .prompter-text .char {
+      transition: color 0.06s ease;
+    }
+
+    .prompter-text .char.spoken {
+      color: var(--text-main);
+      border-bottom: 2.5px solid rgba(0, 91, 172, 0.35);
+    }
+
+    .prompter-text .char.current {
+      color: var(--accent-pink);
+      border-bottom: 3px solid var(--accent-pink);
+    }
+
+    .key-hint {
+      position: fixed;
+      bottom: 4px;
+      right: 40px;
+      font-size: 0.72rem;
+      color: #94A3B8;
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+  <!-- 初期セットアップモーダル -->
+  <div class="setup-overlay" id="setupOverlay">
+    <div class="setup-card">
+      <div class="setup-eyebrow">LT SESSION CONFIGURATOR</div>
+      <h2 class="setup-title">持ち時間とデッキ構成を設定</h2>
+      <p class="setup-desc">設定したトータル時間と選択モジュールに合わせて、全スライドの予定秒数とカラオケ字幕の速度を自動配分します。</p>
+
+      <div class="setup-section">
+        <span class="setup-label">1. トータル持ち時間（プリセット または 任意入力）</span>
+        <div class="preset-row">
+          <button type="button" class="preset-btn" data-min="3" data-sec="0" data-mode="short">3:00 (短縮版)</button>
+          <button type="button" class="preset-btn active" data-min="5" data-sec="0" data-mode="standard">5:00 (標準LT)</button>
+          <button type="button" class="preset-btn" data-min="8" data-sec="0" data-mode="extended">8:00 (Appendix付)</button>
+          <button type="button" class="preset-btn" data-min="10" data-sec="0" data-mode="extended">10:00 (フル拡張)</button>
+        </div>
+        <div class="time-input-row">
+          <div class="time-input-group">
+            <input type="number" id="inputMin" class="time-num-input" min="0" max="60" value="5" />
+            <span class="time-unit">分</span>
+          </div>
+          <div class="time-input-group">
+            <input type="number" id="inputSec" class="time-num-input" min="0" max="59" value="0" />
+            <span class="time-unit">秒</span>
+          </div>
+          <div class="calc-summary" id="calcSummary">計 7枚 / 300秒</div>
+        </div>
+      </div>
+
+      <div class="setup-section">
+        <span class="setup-label">2. スライド構成モジュール（省略・拡張の切替）</span>
+        <div class="module-list">
+          <label class="module-item">
+            <div class="module-left">
+              <input type="checkbox" id="chkIntro" checked />
+              <span class="module-name">Slide 2：自己紹介（加藤 恭平）</span>
+            </div>
+            <span class="module-tag buffer">バッファ① 省略可</span>
+          </label>
+          <label class="module-item">
+            <div class="module-left">
+              <input type="checkbox" id="chkCompare" checked />
+              <span class="module-name">Slide 3：AIエージェント比較表（dots / Muse 等）</span>
+            </div>
+            <span class="module-tag buffer">バッファ② 省略可</span>
+          </label>
+          <label class="module-item">
+            <div class="module-left">
+              <input type="checkbox" id="chkAppendix" />
+              <span class="module-name">Appendix 1〜3：他媒体展開・3軸・会場質問</span>
+            </div>
+            <span class="module-tag appendix">延長・懇親会用</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="button" class="start-deck-btn" id="applySetupBtn">この設定でスライドを準備する（Enter）</button>
+    </div>
+  </div>
+
+  <!-- 画像拡大ライトボックスモーダル -->
+  <div class="zoom-overlay hidden" id="zoomOverlay">
+    <img id="zoomImg" src="" alt="拡大プレビュー" />
+    <div class="zoom-hint">クリック または [Z] / [Esc] で閉じる</div>
+  </div>
+
+  <div class="app">
+    <!-- 上部ステータス＆全体プログレス -->
+    <header class="top-bar">
+      <div class="total-progress-track">
+        <div class="total-progress-fill" id="totalProgressFill"></div>
+      </div>
+      <div class="event-label">
+        <span class="event-dot"></span>
+        <span>AI時代の情報収集術 2026 | Lightning Talk</span>
+      </div>
+      <div class="status-controls">
+        <button type="button" class="setup-trigger-btn" id="openSetupBtn" title="時間と構成を再設定">[S] 時間設定</button>
+        <span class="state-badge paused" id="stateBadge">STANDBY (Space / → で開始)</span>
+        <span class="slide-counter" id="slideCounter">01 / 07</span>
+
+        <!-- 3分割タイマー（左：経過秒数 / 真ん中：予定秒数 / 右：設定LIMIT） -->
+        <div class="timer-trio" aria-label="タイマー表示">
+          <div class="timer-cell elapsed" id="elapsedCell">
+            <span class="timer-cell-label">ELAPSED</span>
+            <span class="timer-cell-val" id="slideElapsedSec">0s</span>
+          </div>
+          <div class="timer-cell target">
+            <span class="timer-cell-label">TARGET</span>
+            <span class="timer-cell-val" id="slideTargetSec">15s</span>
+          </div>
+          <div class="timer-cell total" id="totalCell">
+            <span class="timer-cell-label">LIMIT</span>
+            <span class="timer-cell-val" id="totalLimitDisplay">05:00</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 中央メインステージ -->
+    <main class="main-stage" id="mainStage"></main>
+
+    <!-- 下部カラオケ風テレプロンプター -->
+    <section class="prompter-wrapper" id="prompterWrapper">
+      <div class="prompter-box" id="prompterBox">
+        <div class="slide-progress-bar">
+          <div class="slide-progress-fill" id="slideProgressFill"></div>
+        </div>
+        <div class="prompter-text" id="prompterText"></div>
+      </div>
+    </section>
+
+    <div class="key-hint">[←/→] スライド移動  [Space] 一時停止/再開  [Z] 画像拡大  [S] 時間設定  [H] カンペ切替  [R] リセット</div>
+  </div>
+
+  <script>
+    const ASSET_URLS = {
+      avatar: "https://k-kyouhei.github.io/talks/assets/common/avatar.jpg",
+      widgetScreenshot: "https://k-kyouhei.github.io/talks/assets/ai-info-curation/widget-screenshot.png",
+      qrCode: "https://k-kyouhei.github.io/talks/assets/ai-info-curation/qrcode_k-kyouhei.github.io.png"
+    };
+
+    const ALL_SLIDES = [
+      {
+        id: "title",
+        group: "core",
+        baseWeight: 15,
+        render: () => `
+          <div class="slide-container title-slide">
+            <div class="title-eyebrow">LIGHTNING TALK 2026</div>
+            <h1 class="title-main">
+              <span class="hl-blue">AI時代</span>の情報収集術 2026
+            </h1>
+            <p class="title-sub">――溢れるテックトレンドを最速でキャッチする現場の工夫</p>
+            <p class="speaker-name">加藤 恭平</p>
+          </div>
+        `,
+        script: "こんばんは！今日は『AI時代の情報収集術 2026』と題して、毎日どんどん流れてくるテックトレンドを、私がどうやって最速でキャッチしているか、現場の工夫をお話しします！"
+      },
+      {
+        id: "intro",
+        group: "intro",
+        baseWeight: 30,
+        render: () => `
+          <div class="slide-container content-slide">
+            <div class="slide-kicker">SELF INTRODUCTION</div>
+            <div class="intro-header">
+              <div>
+                <h2 class="slide-headline">加藤 恭平</h2>
+                <p class="profile-org">ふくおかフィナンシャルグループ ／ DX推進本部 システムソリューション部</p>
+              </div>
+              <img
+                class="profile-avatar"
+                src="${ASSET_URLS.avatar}"
+                alt="加藤 恭平"
+                onerror="this.style.display='none'"
+              />
+            </div>
+            <ul class="bullet-list">
+              <li><strong>経歴</strong>：2001年〜 エンジニア（今年で25年目）</li>
+              <li><strong>ルーツ</strong>：北海道出身 ➔ 2020年 福岡移住</li>
+              <li><strong>趣味・特技・好きなもの</strong>：お酒 ❤️</li>
+            </ul>
+          </div>
+        `,
+        script: "まずは簡単に自己紹介をさせてください。ふくおかフィナンシャルグループ、DX推進本部システムソリューション部の加藤恭平と申します。出身は北海道ですが、2020年に福岡へ移住してきました。2001年からエンジニアをやっていて、今年で25年目になります。趣味・特技・好きなものは、とにかくお酒です！よろしくお願いします。"
+      },
+      {
+        id: "compare",
+        group: "compare",
+        baseWeight: 50,
+        render: () => `
+          <div class="slide-container content-slide">
+            <div class="slide-kicker">CURRENT TREND</div>
+            <h2 class="slide-headline">情報収集を自動化するAIエージェント比較</h2>
+            <table class="agent-table">
+              <thead>
+                <tr>
+                  <th>ツール / エージェント</th>
+                  <th>料金目安</th>
+                  <th>設定難易度</th>
+                  <th>主な通知・連携先</th>
+                  <th>特徴</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="agent-name">dots</td>
+                  <td class="agent-price">月 $100</td>
+                  <td>★★☆</td>
+                  <td>Slack / Discord / メール</td>
+                  <td>自律リサーチ・定期配信が強力</td>
+                </tr>
+                <tr>
+                  <td class="agent-name">Muse</td>
+                  <td class="agent-price">現在 無料</td>
+                  <td>★★☆</td>
+                  <td>専用UI / Webhook</td>
+                  <td>軽快に動く注目の新興エージェント</td>
+                </tr>
+                <tr>
+                  <td class="agent-name">Google Gemini</td>
+                  <td class="agent-price">無料〜月 $20</td>
+                  <td>★☆☆</td>
+                  <td>Gmail / Workspace</td>
+                  <td>Googleサービスとの連携がスムーズ</td>
+                </tr>
+                <tr>
+                  <td class="agent-name">Anthropic Claude</td>
+                  <td class="agent-price">月 $20〜$100</td>
+                  <td>★★★</td>
+                  <td>Slack / MCP / ローカル</td>
+                  <td>高度な推論・自律操作が最強クラス</td>
+                </tr>
+                <tr>
+                  <td class="agent-name">Microsoft Copilot</td>
+                  <td class="agent-price">月 $30〜</td>
+                  <td>★☆☆</td>
+                  <td>Teams / Outlook</td>
+                  <td>企業導入の王道・社内情報に強い</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+        script: "さて、2026年の今、情報収集を自動化しようとすると、こういう豪華なAIエージェントたちが候補に挙がりますよね。月額100ドルのdotsから、今なら無料のMuse、さらにはGemini、Claude、Copilotまで。設定の難易度も違えば、SlackやTeamsへの通知方法もさまざまです。「どれを使えば最強の自動情報収集パイプラインが作れるかな？」って比較してワクワクしますよね。……でも、ここで一度画面を切り替えます。"
+      },
+      {
+        id: "twist",
+        group: "core",
+        baseWeight: 25,
+        render: () => `
+          <div class="slide-container twist-slide">
+            <div class="twist-badge">WAIT A SECOND...</div>
+            <h2 class="twist-headline">
+              その<span class="hl-pink">AIトークン</span>、<br>
+              ホントに必要？
+            </h2>
+          </div>
+        `,
+        script: "……『そのAIトークン、ホントに必要？』って話なんです。毎日決まったジャンルやキーワードの最新ニュースをスマホでチェックしたいだけなのに、わざわざ高い推論トークンを毎回燃やす必要、本当にありますか？"
+      },
+      {
+        id: "solution",
+        group: "core",
+        baseWeight: 65,
+        zoomImage: ASSET_URLS.widgetScreenshot,
+        render: () => `
+          <div class="slide-container content-slide">
+            <div class="slide-kicker">MY SOLUTION</div>
+            <h2 class="slide-headline">iOS「Scriptable」× GoogleニュースAPI</h2>
+            <div class="solution-grid">
+              <ul class="bullet-list">
+                <li>iPhoneアプリ <strong>Scriptable</strong> でJavaScript数十行を書くだけ</li>
+                <li><strong>GoogleニュースのAPI（RSS）</strong> を叩いてホーム画面にウィジェット化</li>
+                <li>気になった記事をタップすれば <strong>Googleニュース画面が開く</strong></li>
+                <li><strong>柔軟な制御もOK</strong>：Wi-Fi接続時のみ更新 ／ 低バッテリー時は更新停止 など</li>
+              </ul>
+              <div class="screenshot-frame" onclick="openZoom('${ASSET_URLS.widgetScreenshot}')" title="クリックまたは[Z]キーで拡大表示">
+                <img
+                  class="screenshot-img"
+                  src="${ASSET_URLS.widgetScreenshot}"
+                  alt="iPhoneホーム画面のScriptableウィジェット"
+                />
+                <span class="screenshot-caption">🔍 クリック / [Z] で拡大表示</span>
+              </div>
+            </div>
+          </div>
+        `,
+        script: "そこで私がいま実際にやっているのが、めちゃくちゃシンプルなこの方法です。iOSの神アプリ『Scriptable』を使って、JavaScript数十行でGoogleニュースのAPI、いわゆるRSSを叩いて、iPhoneのホーム画面にウィジェットとして表示しています。画面の右側が実際のスクショです。アプリを開く手間すらゼロで、気になった記事をタップすれば一発でGoogleニュースの画面が開きます。しかも自分でコードを書けるので、「Wi-Fiに繋がっている時だけ更新する」とか「バッテリー残量が少ない時は更新を止める」といった細かい制御も自由自在。更新間隔も「だいたいこれくらい」と指定できます。……ただし、あまり短い間隔で叩きすぎるとAPI制限やバッテリー消費で危険なので、まさに薬と同じで『用法・用量を守って正しくお使いください』という感じですね（笑）。"
+      },
+      {
+        id: "roi",
+        group: "core",
+        baseWeight: 50,
+        render: () => `
+          <div class="slide-container content-slide">
+            <div class="slide-kicker">WHY IT WORKS（圧倒的ROI ＆ UX）</div>
+            <h2 class="slide-headline">引き算が生む3つのメリット</h2>
+            <div class="roi-grid">
+              <div class="roi-card">
+                <div class="roi-num">MERIT 01</div>
+                <h3 class="roi-title">ランニングコスト 0円</h3>
+                <p class="roi-desc">AIトークン消費ゼロ・クラウドサーバーも一切不要。お財布にも社内ROIにも優しい設計。</p>
+              </div>
+              <div class="roi-card">
+                <div class="roi-num">MERIT 02</div>
+                <h3 class="roi-title">通知ゼロで集中力を守る</h3>
+                <p class="roi-desc">Slackやチャットに「あとで読む」未読バッジが溜まるストレスから完全に解放される。</p>
+              </div>
+              <div class="roi-card">
+                <div class="roi-num">MERIT 03</div>
+                <h3 class="roi-title">「視界の1等地」をジャック</h3>
+                <p class="roi-desc">スマホのロック解除直後に開くホーム画面に常駐。アプリ起動すら不要で嫌でも目に入る。</p>
+              </div>
+            </div>
+          </div>
+        `,
+        script: "このやり方、社内でもよく話題になるROI、つまり投資対効果の面でも最高なんです。まず、AIのAPIトークンもクラウドサーバーも使わないので、ランニングコストは完全0円。次に、通知を飛ばさないので、チャットツールに「あとで読もう」と未読が溜まるストレスもありません。iPhoneのロックを解除した瞬間、一番目に入るホーム画面という「視界の1等地」に最新ニュースが静かに並んでいる。この引き算のUXが、忙しい毎日には一番効くんです。"
+      },
+      {
+        id: "takeaway",
+        group: "core",
+        baseWeight: 75,
+        zoomImage: ASSET_URLS.qrCode,
+        render: () => `
+          <div class="slide-container content-slide">
+            <div class="slide-kicker">TAKEAWAY</div>
+            <h2 class="slide-headline">曖昧な操作はAIへ、<br>ロジックが決まったらスクリプトへ。</h2>
+            <div class="takeaway-layout">
+              <ul class="bullet-list">
+                <li>スクリプトを<strong>「書く」</strong>のはAIに手伝わせればいい</li>
+                <li>毎日決まったルールで<strong>「動かす」</strong>のはスクリプトの領分</li>
+                <li>AI台頭の前から、エンジニアでは当たり前だった美学を思い出す</li>
+              </ul>
+              <div class="qr-box" onclick="openZoom('${ASSET_URLS.qrCode}')" title="クリックまたは[Z]キーでQRコードを拡大">
+                <img
+                  class="qr-img"
+                  src="${ASSET_URLS.qrCode}"
+                  alt="GitHub サンプルコード QRコード"
+                />
+                <div class="qr-title">GitHub サンプルコード</div>
+                <div class="qr-note">▲ 用法・用量を守ってどうぞ！<br>（クリック / [Z] で拡大）</div>
+              </div>
+            </div>
+          </div>
+        `,
+        script: "最後に、私がこの仕組みを通じて改めて感じたことをお伝えして終わります。もちろん、私はAIを否定しているわけではありません。何が正解か分からない「曖昧な操作」や「探索」は、AIが圧倒的に得意です。このScriptableのコードだって、AIに書かせれば一瞬で作れます。でも、一度やり方が固まって「ロジックが決まったらスクリプトに落とす」というのは、AIが台頭する前から私たちエンジニアの世界では当たり前だったことですよね。なんでもかんでもAIエージェントにやらせるのではなく、決まった処理は軽快なスクリプトに任せる。そんなエンジニアの当たり前の美学を、たまには思い出してみませんか？ 実際に動かしているサンプルコードはGitHubに置いて、右下にQRコードを貼っておきましたので、興味がある方はぜひ「用法・用量を守って」試してみてください！ありがとうございました！"
+      },
+      {
+        id: "app1",
+        group: "appendix",
+        baseWeight: 45,
+        render: () => `
+          <div class="slide-container content-slide theme-teal">
+            <div class="slide-kicker">APPENDIX 1 / EXPANSION</div>
+            <h2 class="slide-headline">Googleニュース以外も全部「視界の1等地」へ</h2>
+            <ul class="bullet-list">
+              <li><strong>Qiita / Zenn</strong>：日本のエンジニアの最新トレンド・実践知見</li>
+              <li><strong>AI各社の公式リリースノート・ニュースリリース</strong>：<br>OpenAI / Anthropic / Google などの一次情報を最速キャッチ</li>
+            </ul>
+          </div>
+        `,
+        script: "ちなみに時間が少しあるので補足すると、このScriptableウィジェットの仕組み、Googleニュース以外にもそのまま横展開できます。たとえば日本の開発者トレンドを追うならQiitaやZennのフィード。さらに一番おすすめなのが、OpenAIやAnthropic、Googleといった各AI企業の公式リリースノートやニュースリリースです。SNSの伝言ゲームになる前の「一次情報」をホーム画面に直接並べておくと、キャッチアップの速度が段違いになります。"
+      },
+      {
+        id: "app2",
+        group: "appendix",
+        baseWeight: 45,
+        render: () => `
+          <div class="slide-container content-slide theme-teal">
+            <div class="slide-kicker">APPENDIX 2 / CURATION LOGIC</div>
+            <h2 class="slide-headline">目的に合わせて切り替える「3つの取得軸」</h2>
+            <ul class="bullet-list">
+              <li><strong>1. ランキング</strong>：世間の熱量・外せない話題を逃さない</li>
+              <li><strong>2. 新着</strong>：リリース情報や速報をタイムラグなしで掴む</li>
+              <li><strong>3. 検索ワード指定</strong>：自分の専門・興味領域にピンポイントで網を張る</li>
+            </ul>
+          </div>
+        `,
+        script: "ウィジェットに情報を流すときは、闇雲に全部出すのではなく「3つの切り口」でアンテナを分けるのがコツです。1つ目は「ランキング」で世間の大きな熱量を掴むこと。2つ目は「新着」で公式発表をタイムラグなく追うこと。そして3つ目が「検索ワード指定」で、自分の専門分野や今追いたい技術キーワードだけにピンポイントで網を張ることです。この3つをスタックしてスワイプできるようにしておくと最高に便利です。"
+      },
+      {
+        id: "app3",
+        group: "appendix",
+        baseWeight: 60,
+        render: () => `
+          <div class="slide-container content-slide theme-teal">
+            <div class="slide-kicker">APPENDIX 3 / QUESTION</div>
+            <h2 class="slide-headline">あなたの「監視ワード」は何ですか？</h2>
+            <div class="keyword-chips">
+              <span class="kw-chip">生成AI</span>
+              <span class="kw-chip">LLM</span>
+              <span class="kw-chip">RAG</span>
+              <span class="kw-chip">SRE</span>
+              <span class="kw-chip">Oracle Cloud</span>
+            </div>
+            <ul class="bullet-list">
+              <li>他のエンジニアが張っているアンテナ、気になりませんか？</li>
+              <li>ぜひ挙手やチャット、懇親会で <strong>「私の検索ワード」</strong> を教えてください！</li>
+            </ul>
+          </div>
+        `,
+        script: "最後に、ぜひ会場の皆さんにも聞いてみたいです！私がGoogleニュースや技術記事のAPIで指定している検索ワードの例は、たとえば『生成AI』『LLM』『RAG』、あとは本業の『SRE』や『Oracle Cloud』などです。エンジニア同士、他の人がどんなキーワードでアンテナを張っているかって、めちゃくちゃ気になりませんか？もしよかったら、このあと挙手やチャット、あるいは懇親会のお酒の席で「私の検索ワードはこれです！」とぜひ教えてください！"
+      }
+    ];
+
+    let activeSlides = [];
+    let totalDurationSec = 300;
+    let currentSlideIndex = 0;
+    let isRunning = false;
+    let slideElapsedMs = 0;
+    let lastTimestamp = null;
+    let prompterVisible = true;
+    let charSpans = [];
+
+    // DOM要素
+    const setupOverlay = document.getElementById("setupOverlay");
+    const zoomOverlay = document.getElementById("zoomOverlay");
+    const zoomImg = document.getElementById("zoomImg");
+    const inputMin = document.getElementById("inputMin");
+    const inputSec = document.getElementById("inputSec");
+    const calcSummary = document.getElementById("calcSummary");
+    const chkIntro = document.getElementById("chkIntro");
+    const chkCompare = document.getElementById("chkCompare");
+    const chkAppendix = document.getElementById("chkAppendix");
+    const applySetupBtn = document.getElementById("applySetupBtn");
+    const openSetupBtn = document.getElementById("openSetupBtn");
+    const presetBtns = document.querySelectorAll(".preset-btn");
+
+    const mainStage = document.getElementById("mainStage");
+    const prompterBox = document.getElementById("prompterBox");
+    const prompterText = document.getElementById("prompterText");
+    const prompterWrapper = document.getElementById("prompterWrapper");
+    const slideProgressFill = document.getElementById("slideProgressFill");
+    const totalProgressFill = document.getElementById("totalProgressFill");
+    const slideCounter = document.getElementById("slideCounter");
+    const slideElapsedSecEl = document.getElementById("slideElapsedSec");
+    const slideTargetSecEl = document.getElementById("slideTargetSec");
+    const totalLimitDisplay = document.getElementById("totalLimitDisplay");
+    const elapsedCell = document.getElementById("elapsedCell");
+    const totalCell = document.getElementById("totalCell");
+    const stateBadge = document.getElementById("stateBadge");
+
+    // 拡大モーダル制御
+    window.openZoom = function(src) {
+      if (!src) return;
+      zoomImg.src = src;
+      zoomOverlay.classList.remove("hidden");
+    };
+
+    function closeZoom() {
+      zoomOverlay.classList.add("hidden");
+    }
+
+    zoomOverlay.addEventListener("click", closeZoom);
+
+    function formatMMSS(sec) {
+      const s = Math.max(0, Math.round(sec));
+      const m = String(Math.floor(s / 60)).padStart(2, "0");
+      const r = String(s % 60).padStart(2, "0");
+      return `${m}:${r}`;
+    }
+
+    function getSelectedSlidesRaw() {
+      return ALL_SLIDES.filter((s) => {
+        if (s.group === "core") return true;
+        if (s.group === "intro") return chkIntro.checked;
+        if (s.group === "compare") return chkCompare.checked;
+        if (s.group === "appendix") return chkAppendix.checked;
+        return true;
+      });
+    }
+
+    function getInputTotalSeconds() {
+      const m = Math.max(0, parseInt(inputMin.value, 10) || 0);
+      const s = Math.max(0, Math.min(59, parseInt(inputSec.value, 10) || 0));
+      return Math.max(10, m * 60 + s);
+    }
+
+    function updateSetupSummary() {
+      const selected = getSelectedSlidesRaw();
+      const totalSec = getInputTotalSeconds();
+      calcSummary.textContent = `計 ${selected.length}枚 / ${totalSec}秒 (${formatMMSS(totalSec)})`;
+    }
+
+    // プリセットボタン制御
+    presetBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        presetBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        inputMin.value = btn.dataset.min;
+        inputSec.value = btn.dataset.sec;
+
+        const mode = btn.dataset.mode;
+        if (mode === "short") {
+          chkIntro.checked = false;
+          chkCompare.checked = false;
+          chkAppendix.checked = false;
+        } else if (mode === "standard") {
+          chkIntro.checked = true;
+          chkCompare.checked = true;
+          chkAppendix.checked = false;
+        } else if (mode === "extended") {
+          chkIntro.checked = true;
+          chkCompare.checked = true;
+          chkAppendix.checked = true;
+        }
+        updateSetupSummary();
+      });
+    });
+
+    [inputMin, inputSec, chkIntro, chkCompare, chkAppendix].forEach((el) => {
+      el.addEventListener("input", () => {
+        presetBtns.forEach((b) => b.classList.remove("active"));
+        updateSetupSummary();
+      });
+      el.addEventListener("change", updateSetupSummary);
+    });
+
+    function buildDeckFromSetup() {
+      const selected = getSelectedSlidesRaw();
+      totalDurationSec = getInputTotalSeconds();
+      const totalWeight = selected.reduce((acc, s) => acc + s.baseWeight, 0);
+
+      let allocatedSum = 0;
+      activeSlides = selected.map((s, idx) => {
+        let dur;
+        if (idx === selected.length - 1) {
+          dur = Math.max(5, totalDurationSec - allocatedSum);
+        } else {
+          dur = Math.max(5, Math.round((s.baseWeight / totalWeight) * totalDurationSec));
+          allocatedSum += dur;
+        }
+        return { ...s, duration: dur };
+      });
+
+      totalLimitDisplay.textContent = formatMMSS(totalDurationSec);
+      isRunning = false;
+      renderSlide(0);
+      stateBadge.textContent = "STANDBY (Space / → で開始)";
+      stateBadge.className = "state-badge paused";
+      setupOverlay.classList.add("hidden");
+    }
+
+    applySetupBtn.addEventListener("click", buildDeckFromSetup);
+
+    openSetupBtn.addEventListener("click", () => {
+      isRunning = false;
+      updateStateBadge();
+      updateSetupSummary();
+      setupOverlay.classList.remove("hidden");
+    });
+
+    function getCompletedSlidesDuration() {
+      let sum = 0;
+      for (let i = 0; i < currentSlideIndex; i++) {
+        sum += activeSlides[i].duration;
+      }
+      return sum;
+    }
+
+    function renderSlide(index) {
+      closeZoom();
+      currentSlideIndex = index;
+      slideElapsedMs = 0;
+      const slide = activeSlides[currentSlideIndex];
+
+      mainStage.innerHTML = slide.render();
+      slideCounter.textContent = `${String(currentSlideIndex + 1).padStart(2, "0")} / ${String(activeSlides.length).padStart(2, "0")}`;
+      slideTargetSecEl.textContent = `${slide.duration}s`;
+
+      prompterText.innerHTML = "";
+      charSpans = [];
+
+      for (let i = 0; i < slide.script.length; i++) {
+        const span = document.createElement("span");
+        span.textContent = slide.script[i];
+        span.className = "char";
+        prompterText.appendChild(span);
+        charSpans.push(span);
+      }
+
+      prompterBox.scrollTop = 0;
+      updateVisuals();
+    }
+
+    function updateStateBadge() {
+      if (isRunning) {
+        stateBadge.textContent = "ON AIR";
+        stateBadge.className = "state-badge running";
+      } else {
+        stateBadge.textContent = "PAUSED (Space で再開)";
+        stateBadge.className = "state-badge paused";
+      }
+    }
+
+    function updateVisuals() {
+      if (!activeSlides.length) return;
+      const slide = activeSlides[currentSlideIndex];
+      const slideDurationMs = slide.duration * 1000;
+      const slideProgress = Math.min(1, slideElapsedMs / slideDurationMs);
+
+      slideProgressFill.style.width = `${slideProgress * 100}%`;
+
+      const currentSlideSec = Math.floor(slideElapsedMs / 1000);
+      slideElapsedSecEl.textContent = `${currentSlideSec}s`;
+      if (currentSlideSec > slide.duration) {
+        elapsedCell.classList.add("slide-over");
+      } else {
+        elapsedCell.classList.remove("slide-over");
+      }
+
+      const totalElapsedSec = getCompletedSlidesDuration() + (slideElapsedMs / 1000);
+      const totalProgress = Math.min(1, totalElapsedSec / totalDurationSec);
+      totalProgressFill.style.width = `${totalProgress * 100}%`;
+
+      if (totalElapsedSec > totalDurationSec) {
+        totalCell.classList.add("total-over");
+      } else {
+        totalCell.classList.remove("total-over");
+      }
+
+      const totalChars = charSpans.length;
+      const activeIdx = Math.floor(slideProgress * totalChars);
+
+      for (let i = 0; i < totalChars; i++) {
+        const span = charSpans[i];
+        if (i < activeIdx) {
+          span.classList.add("spoken");
+          span.classList.remove("current");
+        } else if (i === activeIdx && isRunning && slideProgress < 1) {
+          span.classList.remove("spoken");
+          span.classList.add("current");
+          const offsetTop = span.offsetTop;
+          const boxHeight = prompterBox.clientHeight;
+          if (offsetTop > boxHeight * 0.55) {
+            prompterBox.scrollTop = offsetTop - boxHeight * 0.4;
+          }
+        } else {
+          span.classList.remove("spoken", "current");
+        }
+      }
+    }
+
+    function tick(timestamp) {
+      if (lastTimestamp !== null && isRunning) {
+        const delta = timestamp - lastTimestamp;
+        slideElapsedMs += delta;
+        updateVisuals();
+      }
+      lastTimestamp = timestamp;
+      requestAnimationFrame(tick);
+    }
+
+    function nextSlide() {
+      if (!isRunning) {
+        isRunning = true;
+        updateStateBadge();
+        if (currentSlideIndex === 0 && slideElapsedMs === 0) {
+          return;
+        }
+      }
+      if (currentSlideIndex < activeSlides.length - 1) {
+        renderSlide(currentSlideIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        renderSlide(currentSlideIndex - 1);
+      } else {
+        slideElapsedMs = 0;
+        updateVisuals();
+      }
+    }
+
+    function togglePause() {
+      isRunning = !isRunning;
+      updateStateBadge();
+      updateVisuals();
+    }
+
+    function togglePrompter() {
+      prompterVisible = !prompterVisible;
+      prompterWrapper.classList.toggle("hidden", !prompterVisible);
+    }
+
+    function resetAll() {
+      isRunning = false;
+      renderSlide(0);
+      stateBadge.textContent = "STANDBY (Space / → で開始)";
+      stateBadge.className = "state-badge paused";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      // 拡大表示中のキー操作
+      if (!zoomOverlay.classList.contains("hidden")) {
+        if (e.key === "Escape" || e.key.toLowerCase() === "z" || e.code === "Space") {
+          e.preventDefault();
+          closeZoom();
+        }
+        return;
+      }
+
+      // セットアップ画面表示中の操作
+      if (!setupOverlay.classList.contains("hidden")) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          buildDeckFromSetup();
+        }
+        return;
+      }
+
+      if (e.key === "ArrowRight" || e.key === "PageDown") {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.code === "Space") {
+        e.preventDefault();
+        togglePause();
+      } else if (e.key.toLowerCase() === "z") {
+        const currentSlide = activeSlides[currentSlideIndex];
+        if (currentSlide && currentSlide.zoomImage) {
+          openZoom(currentSlide.zoomImage);
+        }
+      } else if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        openSetupBtn.click();
+      } else if (e.key.toLowerCase() === "h") {
+        togglePrompter();
+      } else if (e.key.toLowerCase() === "r") {
+        resetAll();
+      }
+    });
+
+    // 初期化
+    updateSetupSummary();
+    buildDeckFromSetup();
+    setupOverlay.classList.remove("hidden");
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
